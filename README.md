@@ -18,11 +18,58 @@ _tesla-microservice_ is used for a number of different services now. Still it is
 
 * Load configuration from filesystem.
 * Aggregate a status.
+* Execute functions with a scheduler
 * Reply to a health check.
 * Deliver a json status report.
 * Report to graphite using the metrics library.
 * Manage handlers using ring.
 * Shutdown gracefully. If necessary delayed, so load-balancers have time to notice.
+
+## Examples
+
+* A growing set of example apllications can be found at [tesla-examples](https://github.com/otto-de/tesla-examples).
+* David & Germán created an example application based, among other, on tesla-microservice. They wrote a very instructive [blog post about it](http://blog.agilityfeat.com/2015/03/clojure-walking-skeleton/)
+* Moritz created [tesla-pubsub-service](https://bitbucket.org/DerGuteMoritz/tesla-pubsub-service). It showcases how to connect components via core.async channels. Also the embedded jetty was replaced by immutant.
+
+### Scheduler
+
+The scheduler executes functions based on a schedule. It is based on [overtones at-at](https://github.com/overtone/at-at) project.
+
+To use the scheduler, you have to hook the `scheduler component` into your system. 
+```clj
+(assoc your-system :scheduler (c/using (sch/new-scheduler) [:config]))
+```
+
+`your-system` is the result from the function `base-system` from `de.otto.tesla.system`.
+
+To actually use it you have to pass the `:scheduler` to the component in which it is invoked like this:
+```clj
+(de.otto.tesla.stateful.scheduler/schedule scheduler scheduled-function interval)
+```
+
+where the `scheduled-function` is executed every `interval` in milliseconds. 
+The number of threads of the overtone-pool used, can be specified by the property `scheduler-cpu-count`.
+
+### app-status
+
+The app-status indicates the current status of your microservice. To use it you can register a status function to it.
+
+Here is a simple example for a function that checks if an atom is empty or not.
+
+```clj
+(de.otto.tesla.stateful.app-status/register-status-fun app-status #(status atom))
+``` 
+
+The `app-status` is injected under the keyword :app-status from the base system.
+
+```clj
+(defn status [atom]
+      (let [status (if @atom :error :ok)
+            message (if @atom "Atom is empty" "Atom is not empty")]
+           (de.otto.status/status-detail :status-id status message)))
+```
+
+For further information and usages take a look at the: [status library](https://github.com/otto-de/status)
 
 ## Choosing a server
 
@@ -61,6 +108,9 @@ your configuration:
 }
 ```
 
+ENV-variables are read with [environ](https://github.com/weavejester/environ). To see
+which keyword represents which ENV-var have a look in their docs. 
+
 ## Addons
 
 The basis included is stripped to the very minimum. Additional functionality is available as addons:
@@ -70,13 +120,6 @@ The basis included is stripped to the very minimum. Additional functionality is 
 * [tesla-cachefile](https://github.com/otto-de/tesla-cachefile): Read and write a cachefile. Locally or in hdfs.
 
 More features will be released at a later time as separate addons.
-
-
-## Examples
-
-* A growing set of example apllications can be found at [tesla-examples](https://github.com/otto-de/tesla-examples).
-* David & Germán created an example application based, among other, on tesla-microservice. They wrote a very instructive [blog post about it](http://blog.agilityfeat.com/2015/03/clojure-walking-skeleton/)
-* Moritz created [tesla-pubsub-service](https://bitbucket.org/DerGuteMoritz/tesla-pubsub-service). It showcases how to connect components via core.async channels. Also the embedded jetty was replaced by immutant.
 
 ## FAQ
 
@@ -93,4 +136,4 @@ More features will be released at a later time as separate addons.
 Christian Stamm, Felix Bechstein, Ralf Sigmund, Kai Brandes, Florian Weyandt
 
 ## License
-Apache License
+Released under [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) license.
